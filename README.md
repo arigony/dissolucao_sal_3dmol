@@ -41,3 +41,11 @@ docs/
 
 Substitua os arquivos atuais do repositório pelos arquivos desta pasta.
 Mantenha `.nojekyll` na raiz.
+
+
+## V3 — gráficos dinâmicos
+
+Os gráficos foram adicionados antes do quiz, no mesmo enquadramento visual do béquer:
+
+- Massa dissolvida × tempo, com linha de capacidade máxima.
+- Solubilidade do NaCl × temperatura, com marcador da temperatura atual.

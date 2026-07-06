@@ -20,6 +20,7 @@
       <a href="#viewer">Visualizador 3D</a>
       <a href="#rigor">Rigor</a>
       <a href="#simulacao">Simulação</a>
+      <a href="#graficos">Gráficos</a>
       <a href="#quiz">Quiz</a>
     </nav>
   </div>
@@ -179,6 +180,50 @@
           </div>
           <p id="dynamicExplanation" class="dynamic-reading">Ajuste os parâmetros e inicie a simulação.</p>
         </aside>
+      </div>
+    </div>
+  </section>
+
+
+  <section id="graficos" class="section alt">
+    <div class="container">
+      <div class="section-heading">
+        <p class="eyebrow">Gráficos dinâmicos</p>
+        <h2>No mesmo enquadramento do experimento</h2>
+        <p>
+          Os gráficos ficam antes do quiz e usam o mesmo padrão visual do béquer:
+          um card didático para acompanhar a evolução da dissolução e a solubilidade do NaCl.
+        </p>
+      </div>
+
+      <div class="chart-grid">
+        <div class="card chart-card beaker-like-card">
+          <div class="chart-header">
+            <div>
+              <h3>Massa dissolvida × tempo</h3>
+              <p>Mostra a aproximação ao equilíbrio durante a simulação.</p>
+            </div>
+            <span class="chart-badge">cinética</span>
+          </div>
+          <canvas id="kineticsChart" width="760" height="380" aria-label="Gráfico de massa dissolvida de NaCl em função do tempo"></canvas>
+          <p class="caption">
+            A curva sobe com a dissolução e se estabiliza quando atinge a massa máxima possível nas condições escolhidas.
+          </p>
+        </div>
+
+        <div class="card chart-card beaker-like-card">
+          <div class="chart-header">
+            <div>
+              <h3>Solubilidade do NaCl × temperatura</h3>
+              <p>Mostra que, para NaCl, a solubilidade muda pouco com a temperatura.</p>
+            </div>
+            <span class="chart-badge">equilíbrio</span>
+          </div>
+          <canvas id="solubilityChart" width="760" height="380" aria-label="Gráfico de solubilidade do NaCl em função da temperatura"></canvas>
+          <p class="caption">
+            O marcador indica a temperatura atual da simulação. Aquecer geralmente acelera mais do que aumenta muito a quantidade final dissolvida.
+          </p>
+        </div>
       </div>
     </div>
   </section>

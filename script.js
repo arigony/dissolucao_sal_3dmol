@@ -195,6 +195,7 @@ const sim = {
 };
 
 let simT = 0, dissolved = 0, running = false, timer = null;
+let simHistory = [{ time: 0, dissolved: 0, capacity: 0 }];
 const grainFactors = { fine: 1.35, medium: 1, coarse: 0.68 };
 
 function fmt(n, d = 1) { return n.toFixed(d).replace(".", ","); }
@@ -212,7 +213,7 @@ function updateLabels() {
 }
 
 function reset(withMsg = false) {
-  clearInterval(timer); running = false; simT = 0; dissolved = 0; update();
+  clearInterval(timer); running = false; simT = 0; dissolved = 0; simHistory = [{ time: 0, dissolved: 0, capacity: cap() }]; update();
   if (withMsg) {
     sim.reset.textContent = "Experimento reiniciado para manter coerência química.";
     setTimeout(() => sim.reset.textContent = "", 2500);
@@ -225,6 +226,8 @@ function step() {
   dissolved += (tg - dissolved) * k * 2.1;
   if (Math.abs(tg - dissolved) < 0.03) dissolved = tg;
   simT += 0.11;
+  simHistory.push({ time: simT, dissolved: dissolved, capacity: cap() });
+  if (simHistory.length > 220) simHistory.shift();
   if (dissolved >= tg) { clearInterval(timer); running = false; }
   update();
 }
@@ -274,6 +277,9 @@ function update() {
       sim.particles.appendChild(p);
     }
   }
+
+  drawKineticsChart();
+  drawSolubilityChart();
 }
 
 $("startSim").onclick = () => { if (!running) { running = true; timer = setInterval(step, 110); } };
@@ -283,6 +289,142 @@ $("resetSim").onclick = () => reset(false);
 sim.grain.addEventListener("change", () => reset(true));
 sim.ag.addEventListener("input", update);
 update();
+
+
+/* Dynamic charts */
+function setupCanvas(canvas) {
+  if (!canvas) return null;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const cssW = rect.width || canvas.width || 760;
+  const cssH = Math.max(260, cssW * 0.50);
+  canvas.style.height = cssH + "px";
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: cssW, h: cssH };
+}
+
+function drawAxes(ctx, w, h, opts) {
+  const left = 58, right = 24, top = 28, bottom = 50;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#f8fcff";
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = "#d9e9f5";
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = top + (h - top - bottom) * i / 4;
+    ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(w - right, y); ctx.stroke();
+  }
+  ctx.strokeStyle = "#7db3cd";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(left, top); ctx.lineTo(left, h - bottom); ctx.lineTo(w - right, h - bottom); ctx.stroke();
+  ctx.fillStyle = "#5d7288";
+  ctx.font = "12px system-ui";
+  ctx.textAlign = "center";
+  ctx.fillText(opts.xLabel, (left + w - right) / 2, h - 14);
+  ctx.save();
+  ctx.translate(17, (top + h - bottom) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(opts.yLabel, 0, 0);
+  ctx.restore();
+  return { left, right, top, bottom, plotW: w - left - right, plotH: h - top - bottom };
+}
+
+function drawKineticsChart() {
+  const setup = setupCanvas($("kineticsChart"));
+  if (!setup) return;
+  const { ctx, w, h } = setup;
+  const x = inputs();
+  const c = cap();
+  if (!simHistory.length || simHistory[0].capacity === 0) simHistory[0] = { time: 0, dissolved: 0, capacity: c };
+  const maxMass = Math.max(x.salt, c, 1);
+  const maxTime = Math.max(10, ...simHistory.map(p => p.time));
+  const a = drawAxes(ctx, w, h, { xLabel: "Tempo de simulação", yLabel: "Massa dissolvida (g)" });
+  const px = t => a.left + (t / maxTime) * a.plotW;
+  const py = m => a.top + a.plotH - (m / maxMass) * a.plotH;
+
+  ctx.strokeStyle = "rgba(34,91,214,.55)";
+  ctx.setLineDash([6, 6]);
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(a.left, py(c)); ctx.lineTo(w - a.right, py(c)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#173f9b"; ctx.font = "12px system-ui"; ctx.textAlign = "right";
+  ctx.fillText("capacidade", w - a.right - 6, py(c) - 7);
+
+  ctx.strokeStyle = "#05a6a6";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  simHistory.forEach((p, i) => {
+    const xx = px(p.time), yy = py(p.dissolved);
+    if (i === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+  });
+  ctx.stroke();
+
+  const last = simHistory[simHistory.length - 1] || { time: 0, dissolved: 0 };
+  ctx.fillStyle = "#05a6a6";
+  ctx.beginPath(); ctx.arc(px(last.time), py(last.dissolved), 5, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = "#5d7288"; ctx.font = "12px system-ui"; ctx.textAlign = "right";
+  for (let i = 0; i <= 4; i++) {
+    const value = maxMass * i / 4;
+    ctx.fillText(fmt(value, 0), a.left - 8, py(value) + 4);
+  }
+  ctx.textAlign = "center";
+  for (let i = 0; i <= 4; i++) {
+    const value = maxTime * i / 4;
+    ctx.fillText(fmt(value, 0) + " s", px(value), h - a.bottom + 22);
+  }
+  ctx.fillStyle = "#10263d"; ctx.font = "bold 13px system-ui"; ctx.textAlign = "left";
+  ctx.fillText("Dissolvido agora: " + fmt(dissolved) + " g", a.left, a.top - 9);
+}
+
+function drawSolubilityChart() {
+  const setup = setupCanvas($("solubilityChart"));
+  if (!setup) return;
+  const { ctx, w, h } = setup;
+  const x = inputs();
+  const a = drawAxes(ctx, w, h, { xLabel: "Temperatura (°C)", yLabel: "Solubilidade (g/100 g H₂O)" });
+  const minS = 35, maxS = 40.2;
+  const px = t => a.left + (t / 100) * a.plotW;
+  const py = s => a.top + a.plotH - ((s - minS) / (maxS - minS)) * a.plotH;
+
+  ctx.strokeStyle = "#225bd6"; ctx.lineWidth = 3; ctx.beginPath();
+  for (let t = 0; t <= 100; t += 2) {
+    const xx = px(t), yy = py(sol100(t));
+    if (t === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+  }
+  ctx.stroke();
+
+  const currentS = sol100(x.temp);
+  ctx.strokeStyle = "rgba(16,38,61,.35)";
+  ctx.setLineDash([5, 5]);
+  ctx.beginPath(); ctx.moveTo(px(x.temp), a.top); ctx.lineTo(px(x.temp), h - a.bottom); ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = "#225bd6";
+  ctx.beginPath(); ctx.arc(px(x.temp), py(currentS), 6, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = "#10263d"; ctx.font = "bold 13px system-ui"; ctx.textAlign = "left";
+  ctx.fillText("Temperatura atual: " + x.temp + " °C", a.left, a.top - 9);
+
+  ctx.fillStyle = "#5d7288"; ctx.font = "12px system-ui"; ctx.textAlign = "right";
+  for (let i = 0; i <= 4; i++) {
+    const value = minS + (maxS - minS) * i / 4;
+    ctx.fillText(fmt(value, 1), a.left - 8, py(value) + 4);
+  }
+  ctx.textAlign = "center";
+  for (let t = 0; t <= 100; t += 25) {
+    ctx.fillText(t + "°", px(t), h - a.bottom + 22);
+  }
+}
+
+window.addEventListener("resize", () => {
+  drawKineticsChart();
+  drawSolubilityChart();
+});
+
 
 /* Quiz */
 const quiz = [
