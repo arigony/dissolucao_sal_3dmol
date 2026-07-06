@@ -1,201 +1,43 @@
-<!doctype html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dissolução do NaCl em água — 3Dmol corrigido</title>
-  <meta name="description" content="Objeto educacional interativo sobre dissolução do NaCl em água com 3Dmol.js, água com ligações O-H visíveis e animação molecular didática.">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+# Dissolução do NaCl em água — 3Dmol corrigido V2
 
-<header class="site-header">
-  <div class="container header-inner">
-    <a class="brand" href="#conteudo" aria-label="Início">
-      <span class="brand-badge">NaCl</span>
-      <span><strong>Dissolução em água</strong><small>3Dmol.js + hidratação iônica</small></span>
-    </a>
-    <nav class="nav" aria-label="Navegação principal">
-      <a href="#viewer">Visualizador 3D</a>
-      <a href="#rigor">Rigor</a>
-      <a href="#simulacao">Simulação</a>
-      <a href="#quiz">Quiz</a>
-    </nav>
-  </div>
-</header>
+Versão corrigida após análise da página publicada.
 
-<main id="conteudo">
-  <section class="hero">
-    <div class="container hero-grid">
-      <div>
-        <p class="eyebrow">Química Geral • Solubilidade • Hidratação iônica</p>
-        <h1>Do cristal de NaCl aos íons hidratados</h1>
-        <p class="lead">
-          Esta versão corrige o visualizador 3D e mostra a água como molécula:
-          <strong>ligações O–H visíveis</strong>, orientação dipolar e hidratação de Na⁺ e Cl⁻.
-          A animação é didática e inspirada em vídeos educacionais de dissolução, sem afirmar ser dinâmica molecular real.
-        </p>
-        <div class="hero-actions">
-          <a href="#viewer" class="btn primary">Abrir visualizador 3D</a>
-          <a href="#rigor" class="btn secondary">Ver base científica</a>
-        </div>
-        <div class="takeaway">
-          <strong>Leitura molecular:</strong> o O da água aponta para Na⁺; os H da água apontam para Cl⁻.
-        </div>
-      </div>
-      <div class="card hero-card">
-        <div class="equation">NaCl(s) ⇌ Na⁺(aq) + Cl⁻(aq)</div>
-        <p>
-          A animação mostra a sequência conceitual da hidratação; o equilíbrio de solubilidade depende de energia livre
-          e igualdade de potenciais químicos entre solução e sólido.
-        </p>
-      </div>
-    </div>
-  </section>
+## Correções principais
 
-  <section id="viewer" class="section">
-    <div class="container">
-      <div class="section-heading">
-        <p class="eyebrow">Visualizador molecular 3D corrigido</p>
-        <h2>Água com ligações O–H e hidratação orientada</h2>
-        <p>
-          O visualizador fica preso ao card, sem sobrepor o cabeçalho. Use os botões para alternar cristal,
-          íons hidratados e animação multi-frame.
-        </p>
-      </div>
+1. Viewer preso ao card:
+   - 3Dmol criado usando o elemento DOM real.
+   - CSS reforçado para evitar sobreposição no hero/header.
+   - `viewer.resize()` após inicialização e no redimensionamento da janela.
 
-      <div class="viewer-grid">
-        <aside class="card controls-card">
-          <h3>Cenas moleculares</h3>
-          <button class="scene-btn active" data-scene="movie">Filme: dissociação e hidratação</button>
-          <button class="scene-btn" data-scene="crystal">Cristal de NaCl</button>
-          <button class="scene-btn" data-scene="na">Na⁺ hidratado</button>
-          <button class="scene-btn" data-scene="cl">Cl⁻ hidratado</button>
-          <button class="scene-btn" data-scene="final">Cena final hidratada</button>
+2. Água com ligações O–H visíveis:
+   - Estilo padrão didático.
+   - Na⁺ e Cl⁻ como esferas.
+   - Água em ball-and-stick.
 
-          <h3>Controles</h3>
-          <button class="style-btn" data-style="hydration">Estilo didático</button>
-          <button class="style-btn" data-style="spacefill">Spacefill</button>
-          <button class="style-btn" data-style="labels">Rótulos on/off</button>
-          <button class="style-btn" data-style="spin">Girar/pausar</button>
-          <button class="style-btn" data-style="play">Play/pause filme</button>
-          <button class="style-btn" data-style="reset">Centralizar</button>
+3. Filme multi-frame:
+   - Substitui o slideshow de JSON.
+   - Usa `models/nacl_hydration_movie.xyz`.
+   - Carrega com `addModelsAsFrames(...)` e `viewer.animate(...)`.
 
-          <div class="legend">
-            <span><i class="dot na"></i> Na⁺</span>
-            <span><i class="dot cl"></i> Cl⁻</span>
-            <span><i class="dot oxygen"></i> O</span>
-            <span><i class="dot hydrogen"></i> H</span>
-            <span><i class="line-sample"></i> ligação O–H</span>
-          </div>
-          <div id="viewerStatus" class="status-box">Carregando 3Dmol.js…</div>
-        </aside>
+## Estrutura
 
-        <div class="card viewer-card">
-          <div class="viewer-toolbar">
-            <strong id="viewerTitle">Filme: dissociação e hidratação</strong>
-            <span id="viewerMode">3Dmol.js</span>
-          </div>
-          <div id="viewer3d" class="viewer3d" aria-label="Visualizador molecular 3D"></div>
-          <p class="caption">
-            Modelo didático: as ligações O–H são covalentes dentro da água; as interações íon–dipolo são representadas visualmente, não como ligações covalentes com os íons.
-          </p>
-        </div>
+```text
+index.html
+style.css
+script.js
+README.md
+.nojekyll
+models/
+  nacl_crystal.xyz
+  na_hydrated.xyz
+  cl_hydrated.xyz
+  hydrated_ions_final.xyz
+  nacl_hydration_movie.xyz
+docs/
+  correcoes_v2.md
+```
 
-        <aside class="card reading-card">
-          <h3>Leitura da cena</h3>
-          <div id="sceneExplanation">
-            <p><strong>Filme:</strong> água se aproxima da superfície, íons de superfície se separam e ficam hidratados.</p>
-          </div>
-          <div class="note"><strong>Na⁺ hidratado:</strong> oxigênios voltados para o cátion.</div>
-          <div class="note"><strong>Cl⁻ hidratado:</strong> hidrogênios voltados para o ânion.</div>
-          <div class="note warning"><strong>Limite:</strong> visualização didática, não trajetória MC/MD real.</div>
-        </aside>
-      </div>
-    </div>
-  </section>
+## Publicação
 
-  <section id="rigor" class="section alt">
-    <div class="container">
-      <div class="section-heading">
-        <p class="eyebrow">Base científica</p>
-        <h2>O que é rigoroso e o que é didático</h2>
-      </div>
-      <div class="rigor-grid">
-        <article class="card rigor-card"><h3>Visualização</h3><p>Representa orientação da água e hidratação iônica. Não calcula forças, energia livre ou trajetória dinâmica real.</p></article>
-        <article class="card rigor-card"><h3>Solubilidade</h3><p>Em simulação molecular rigorosa, a solubilidade é determinada por igualdade de potenciais químicos.</p></article>
-        <article class="card rigor-card"><h3>Modelos do artigo</h3><p>Água SPC/E; íons Tosi-Fumi; interações água–íon Smith-Dang.</p></article>
-        <article class="card rigor-card"><h3>Ensino</h3><p>O objetivo é ajudar o estudante a conectar macroscópico, microscópico e simbólico.</p></article>
-      </div>
-    </div>
-  </section>
-
-  <section id="simulacao" class="section">
-    <div class="container">
-      <div class="section-heading">
-        <p class="eyebrow">Simulação pedagógica</p>
-        <h2>Cinética visual versus solubilidade</h2>
-        <p>Controle massa de sal, água, temperatura, agitação e tamanho do grão.</p>
-      </div>
-
-      <div class="sim-grid">
-        <aside class="card controls-card">
-          <label>NaCl adicionado: <span id="saltMassValue">40</span> g</label>
-          <input id="saltMass" type="range" min="5" max="80" value="40">
-          <label>Água: <span id="waterMassValue">100</span> g</label>
-          <input id="waterMass" type="range" min="50" max="200" step="10" value="100">
-          <label>Temperatura: <span id="temperatureValue">25</span> °C</label>
-          <input id="temperature" type="range" min="0" max="100" value="25">
-          <label>Agitação: <span id="agitationValue">50</span> %</label>
-          <input id="agitation" type="range" min="0" max="100" value="50">
-          <label>Tamanho do grão</label>
-          <select id="grainSize"><option value="fine">Sal fino</option><option value="medium" selected>Sal médio</option><option value="coarse">Sal grosso</option></select>
-          <div class="button-row"><button id="startSim" class="btn primary">Iniciar</button><button id="pauseSim" class="btn secondary">Pausar</button><button id="resetSim" class="btn secondary">Reiniciar</button></div>
-          <p id="resetMessage" class="reset-message"></p>
-        </aside>
-
-        <div class="card beaker-card">
-          <h3>Béquer didático</h3>
-          <div class="beaker-scene">
-            <svg class="beaker-outline" viewBox="0 0 420 380" aria-hidden="true"><path d="M54 24 L366 24 L338 356 L82 356 Z" fill="none" stroke="#7db3cd" stroke-width="4"/></svg>
-            <div class="liquid-mask"><div class="liquid" id="liquid"></div></div>
-            <div class="particle-layer" id="particleLayer"></div>
-            <div class="solid-layer" id="solidLayer"></div>
-          </div>
-        </div>
-
-        <aside class="card metrics-card">
-          <h3>Métricas</h3>
-          <div class="metrics">
-            <div><span>Tempo</span><strong id="timeValue">0,0 s</strong></div>
-            <div><span>Capacidade máxima</span><strong id="capacityValue">36,6 g</strong></div>
-            <div><span>Dissolvido agora</span><strong id="dissolvedValue">0,0 g</strong></div>
-            <div><span>Ainda sólido agora</span><strong id="solidNowValue">40,0 g</strong></div>
-            <div><span>Excesso no equilíbrio</span><strong id="excessValue">3,4 g</strong></div>
-            <div><span>Saturação atual</span><strong id="saturationValue">0 %</strong></div>
-            <div><span>Concentração aprox.</span><strong id="concentrationValue">0,00 mol/L</strong></div>
-            <div><span>Condutividade relativa</span><strong id="conductivityValue">0,00</strong></div>
-          </div>
-          <p id="dynamicExplanation" class="dynamic-reading">Ajuste os parâmetros e inicie a simulação.</p>
-        </aside>
-      </div>
-    </div>
-  </section>
-
-  <section id="quiz" class="section alt">
-    <div class="container">
-      <div class="section-heading"><p class="eyebrow">Avaliação formativa</p><h2>Quiz com feedback imediato</h2></div>
-      <div id="quizContainer" class="quiz-grid"></div>
-      <div class="quiz-actions"><button id="finishQuiz" class="btn primary">Ver resultado</button></div>
-      <div id="quizResult" class="card result-card hidden"></div>
-    </div>
-  </section>
-</main>
-
-<footer class="site-footer"><div class="container"><p>Projeto educacional com 3Dmol.js; visualização molecular didática, hidratação iônica e limitações explícitas.</p></div></footer>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.0.4/3Dmol-min.js"></script>
-<script src="script.js"></script>
-</body>
-</html>
+Substitua os arquivos atuais do repositório pelos arquivos desta pasta.
+Mantenha `.nojekyll` na raiz.
