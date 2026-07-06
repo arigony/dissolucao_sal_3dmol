@@ -49,3 +49,11 @@ Os gráficos foram adicionados antes do quiz, no mesmo enquadramento visual do b
 
 - Massa dissolvida × tempo, com linha de capacidade máxima.
 - Solubilidade do NaCl × temperatura, com marcador da temperatura atual.
+
+## V4 — gráfico estável
+
+Correções:
+- a curva de massa dissolvida agora mantém o histórico desde 0 s;
+- o código não remove mais os pontos iniciais do gráfico;
+- o canvas só é redimensionado quando o tamanho real muda, evitando flicker/sumiço;
+- altura fixa do canvas para melhorar estabilidade visual.

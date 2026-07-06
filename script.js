@@ -227,7 +227,8 @@ function step() {
   if (Math.abs(tg - dissolved) < 0.03) dissolved = tg;
   simT += 0.11;
   simHistory.push({ time: simT, dissolved: dissolved, capacity: cap() });
-  if (simHistory.length > 220) simHistory.shift();
+  // Preserve the full curve from 0 s; do not remove the beginning of the graph.
+  if (simHistory.length > 1200) simHistory = [simHistory[0], ...simHistory.slice(-1199)];
   if (dissolved >= tg) { clearInterval(timer); running = false; }
   update();
 }
@@ -296,11 +297,18 @@ function setupCanvas(canvas) {
   if (!canvas) return null;
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
-  const cssW = rect.width || canvas.width || 760;
-  const cssH = Math.max(260, cssW * 0.50);
-  canvas.style.height = cssH + "px";
-  canvas.width = Math.round(cssW * dpr);
-  canvas.height = Math.round(cssH * dpr);
+  const cssW = Math.max(320, rect.width || canvas.parentElement?.clientWidth || 760);
+  const cssH = Math.max(260, rect.height || 320);
+  const targetW = Math.round(cssW * dpr);
+  const targetH = Math.round(cssH * dpr);
+
+  // Resize only when the real displayed size changes.
+  // Resizing the canvas on every simulation tick clears the drawing and causes flicker.
+  if (canvas.width !== targetW || canvas.height !== targetH) {
+    canvas.width = targetW;
+    canvas.height = targetH;
+  }
+
   const ctx = canvas.getContext("2d");
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return { ctx, w: cssW, h: cssH };
@@ -338,9 +346,10 @@ function drawKineticsChart() {
   const { ctx, w, h } = setup;
   const x = inputs();
   const c = cap();
-  if (!simHistory.length || simHistory[0].capacity === 0) simHistory[0] = { time: 0, dissolved: 0, capacity: c };
+  if (!simHistory.length || simHistory[0].time !== 0) simHistory.unshift({ time: 0, dissolved: 0, capacity: c });
+  if (simHistory[0].capacity === 0) simHistory[0].capacity = c;
   const maxMass = Math.max(x.salt, c, 1);
-  const maxTime = Math.max(10, ...simHistory.map(p => p.time));
+  const maxTime = Math.max(10, Math.ceil(Math.max(...simHistory.map(p => p.time)) / 5) * 5);
   const a = drawAxes(ctx, w, h, { xLabel: "Tempo de simulação", yLabel: "Massa dissolvida (g)" });
   const px = t => a.left + (t / maxTime) * a.plotW;
   const py = m => a.top + a.plotH - (m / maxMass) * a.plotH;
