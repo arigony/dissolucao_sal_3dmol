@@ -1,116 +1,357 @@
 
 const $ = (id) => document.getElementById(id);
 
+/* ============================================================
+   3Dmol V5 — chemically controlled manual animation
+   ------------------------------------------------------------
+   We do NOT use addModel/addModelsAsFrames for the animation.
+   XYZ/PDB automatic bond perception is deliberately avoided.
+   Only these are drawn:
+   - Na+ / Cl- / O / H as spheres
+   - O-H covalent bonds inside each water molecule as cylinders
+   - ion-dipole interactions as dotted visual guides
+   ============================================================ */
+
 const sceneInfo = {
-  movie: { title: "Filme: dissociação e hidratação", path: "models/nacl_hydration_movie.xyz", type: "movie", explanation: "<p><strong>Filme:</strong> águas se aproximam da superfície do cristal; Na⁺ e Cl⁻ de superfície se separam e ficam estabilizados por hidratação.</p>" },
-  crystal: { title: "Cristal de NaCl", path: "models/nacl_crystal.xyz", type: "single", explanation: "<p><strong>Cristal:</strong> fragmento didático da rede rock-salt de NaCl. Na⁺ é menor/roxo; Cl⁻ é maior/verde.</p>" },
-  na: { title: "Na⁺ hidratado", path: "models/na_hydrated.xyz", type: "single", explanation: "<p><strong>Na⁺ hidratado:</strong> o oxigênio da água, região mais rica em densidade eletrônica, aponta para o cátion.</p>" },
-  cl: { title: "Cl⁻ hidratado", path: "models/cl_hydrated.xyz", type: "single", explanation: "<p><strong>Cl⁻ hidratado:</strong> os hidrogênios parcialmente positivos da água apontam para o ânion.</p>" },
-  final: { title: "Cena final hidratada", path: "models/hydrated_ions_final.xyz", type: "single", explanation: "<p><strong>Cena final:</strong> íons de superfície já separados e hidratados. É uma representação didática do produto microscópico da dissolução.</p>" }
+  movie: {
+    title: "Filme: hidratação controlada",
+    explanation: "<p><strong>Filme:</strong> cristal pequeno, água orientada, saída de Na⁺ e Cl⁻ da superfície e formação de hidratação. As ligações são controladas manualmente.</p>"
+  },
+  crystal: {
+    title: "Cristal de NaCl",
+    explanation: "<p><strong>Cristal:</strong> rede iônica simplificada. Não há ligações covalentes entre Na⁺ e Cl⁻; são íons em rede cristalina.</p>"
+  },
+  na: {
+    title: "Na⁺ hidratado",
+    explanation: "<p><strong>Na⁺ hidratado:</strong> somente ligações O–H da água são desenhadas. A orientação O···Na⁺ é interação íon–dipolo.</p>"
+  },
+  cl: {
+    title: "Cl⁻ hidratado",
+    explanation: "<p><strong>Cl⁻ hidratado:</strong> somente ligações O–H da água são desenhadas. A orientação H···Cl⁻ é interação íon–dipolo.</p>"
+  },
+  final: {
+    title: "Cena final hidratada",
+    explanation: "<p><strong>Cena final:</strong> Na⁺ e Cl⁻ separados da superfície e hidratados, com interações pontilhadas.</p>"
+  }
 };
 
 let viewer = null;
 let currentScene = "movie";
-let currentStyle = "hydration";
 let labelsOn = false;
-let spinning = true;
+let spinning = false;
 let moviePlaying = true;
+let movieTimer = null;
+let movieFrame = 0;
+const movieFrameCount = 60;
+
+const COLORS = {
+  Na: "#7c4dff",
+  Cl: "#20a85e",
+  O: "#e84135",
+  H: "#f4f7fb",
+  OHBond: "#d7e3ef",
+  interaction: "#ffd166",
+  highlight: "#ffffff"
+};
+
+const RADII = {
+  Na: 0.42,
+  Cl: 0.58,
+  O: 0.24,
+  H: 0.14
+};
 
 function status(msg) {
   const el = $("viewerStatus");
   if (el) el.textContent = msg;
 }
 
-async function fetchText(path) {
-  const res = await fetch(path, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Não foi possível carregar ${path}`);
-  return await res.text();
+function v(x, y, z) { return { x, y, z }; }
+function add(a, b) { return v(a.x + b.x, a.y + b.y, a.z + b.z); }
+function sub(a, b) { return v(a.x - b.x, a.y - b.y, a.z - b.z); }
+function mul(a, s) { return v(a.x * s, a.y * s, a.z * s); }
+function lerp(a, b, t) { return v(a.x * (1 - t) + b.x * t, a.y * (1 - t) + b.y * t, a.z * (1 - t) + b.z * t); }
+function len(a) { return Math.sqrt(a.x*a.x + a.y*a.y + a.z*a.z); }
+function norm(a) { const n = len(a) || 1; return v(a.x/n, a.y/n, a.z/n); }
+function cross(a, b) { return v(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x); }
+function smooth(t) { t = Math.max(0, Math.min(1, t)); return t*t*(3 - 2*t); }
+
+function directionFromAngles(theta, phi = 0.25) {
+  return norm(v(Math.cos(theta)*Math.cos(phi), Math.sin(theta)*Math.cos(phi), Math.sin(phi)));
 }
 
-function applyHydrationStyle() {
-  if (!viewer) return;
-  viewer.setStyle({}, {});
-  viewer.removeAllLabels();
-
-  if (currentStyle === "spacefill") {
-    viewer.setStyle({ elem: "Na" }, { sphere: { scale: 0.58, color: "#7c4dff" } });
-    viewer.setStyle({ elem: "Cl" }, { sphere: { scale: 0.72, color: "#20a85e" } });
-    viewer.setStyle({ elem: "O" }, { sphere: { scale: 0.34, color: "#e84135" } });
-    viewer.setStyle({ elem: "H" }, { sphere: { scale: 0.22, color: "#f4f7fb" } });
-  } else {
-    viewer.setStyle({ elem: "Na" }, { sphere: { scale: 0.58, color: "#7c4dff" } });
-    viewer.setStyle({ elem: "Cl" }, { sphere: { scale: 0.72, color: "#20a85e" } });
-    viewer.setStyle({ elem: "O" }, {
-      sphere: { scale: 0.28, color: "#e84135" },
-      stick: { radius: 0.11, color: "#d7e3ef" }
-    });
-    viewer.setStyle({ elem: "H" }, {
-      sphere: { scale: 0.18, color: "#f4f7fb" },
-      stick: { radius: 0.11, color: "#d7e3ef" }
-    });
-  }
-
-  if (labelsOn) {
-    const atoms = viewer.selectedAtoms({});
-    atoms.forEach((a, idx) => {
-      if (a.elem === "Na" || a.elem === "Cl" || (a.elem === "O" && idx % 9 === 0)) {
-        const label = a.elem === "Na" ? "Na⁺" : a.elem === "Cl" ? "Cl⁻" : "O";
-        viewer.addLabel(label, {
-          position: { x: a.x, y: a.y, z: a.z },
-          backgroundColor: "rgba(0,0,0,0.38)",
-          fontColor: "white",
-          fontSize: 12,
-          inFront: true
+/* Small crystal: deliberately smaller than previous versions */
+function buildCrystal() {
+  const atoms = [];
+  const d = 2.82;
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      for (let k = 0; k < 2; k++) {
+        const elem = ((i + j + k) % 2 === 0) ? "Na" : "Cl";
+        atoms.push({
+          elem,
+          pos: v((i - 1) * d, (j - 1) * d, (k - 0.5) * d),
+          crystal: true
         });
       }
+    }
+  }
+  return atoms;
+}
+
+const crystalAtoms = buildCrystal();
+const naSurfaceStart = v(2.82, 2.82, -1.41);
+const clSurfaceStart = v(2.82, -2.82, 1.41);
+const naReleased = v(6.4, 2.6, 1.2);
+const clReleased = v(6.6, -2.8, -1.0);
+
+function waterMolecule(center, toward, mode) {
+  // mode "Na": O near Na+, H away from Na+
+  // mode "Cl": H near Cl-, O farther from Cl-
+  const d = norm(toward);
+  const ref = Math.abs(d.z) < 0.85 ? v(0,0,1) : v(0,1,0);
+  const p = norm(cross(d, ref));
+  const oh = 0.96;
+  const cosh = Math.cos(52.25 * Math.PI / 180);
+  const sinh = Math.sin(52.25 * Math.PI / 180);
+
+  let O, H1, H2;
+  if (mode === "Na") {
+    O = center;
+    H1 = add(O, add(mul(d, oh*cosh), mul(p, oh*sinh)));
+    H2 = add(O, add(mul(d, oh*cosh), mul(p, -oh*sinh)));
+  } else {
+    O = center;
+    H1 = add(O, add(mul(d, -oh*cosh), mul(p, oh*sinh)));
+    H2 = add(O, add(mul(d, -oh*cosh), mul(p, -oh*sinh)));
+  }
+  return { O, H1, H2, mode };
+}
+
+function shellWaters(ionPos, mode, count = 6) {
+  const waters = [];
+  for (let i = 0; i < count; i++) {
+    const theta = 2 * Math.PI * i / count;
+    const phi = (i % 2 === 0) ? 0.38 : -0.38;
+    const d = directionFromAngles(theta, phi);
+    if (mode === "Na") {
+      const O = add(ionPos, mul(d, 2.15));
+      waters.push(waterMolecule(O, d, "Na"));
+    } else {
+      // for Cl-, place O farther; H point toward Cl-
+      const O = add(ionPos, mul(d, 2.85));
+      waters.push(waterMolecule(O, d, "Cl"));
+    }
+  }
+  return waters;
+}
+
+function approachWaters() {
+  const starts = [];
+  for (let i = 0; i < 12; i++) {
+    const theta = 2 * Math.PI * i / 12;
+    const center = v(8.6 + 0.35*Math.sin(i), 4.8*Math.sin(theta), 4.5*Math.cos(theta));
+    const d = directionFromAngles(theta, 0.2*Math.sin(i));
+    starts.push(waterMolecule(center, d, i < 6 ? "Na" : "Cl"));
+  }
+  return starts;
+}
+
+function waterParts(water) {
+  return [
+    { elem: "O", pos: water.O },
+    { elem: "H", pos: water.H1 },
+    { elem: "H", pos: water.H2 }
+  ];
+}
+
+function lerpWater(a, b, t) {
+  return { O: lerp(a.O, b.O, t), H1: lerp(a.H1, b.H1, t), H2: lerp(a.H2, b.H2, t), mode: b.mode };
+}
+
+function movieState(frameIndex) {
+  const t = frameIndex / (movieFrameCount - 1);
+  const waterT = smooth(t);
+  const releaseT = smooth((t - 0.25) / 0.55);
+  const interactionT = smooth((t - 0.35) / 0.45);
+
+  const naPos = lerp(naSurfaceStart, naReleased, releaseT);
+  const clPos = lerp(clSurfaceStart, clReleased, releaseT);
+
+  const startWaters = approachWaters();
+  const finalWaters = shellWaters(naPos, "Na", 6).concat(shellWaters(clPos, "Cl", 6));
+  const waters = finalWaters.map((w, i) => lerpWater(startWaters[i], w, waterT));
+
+  return {
+    crystalAtoms: crystalAtoms.map(a => {
+      if (a.elem === "Na" && Math.abs(a.pos.x - naSurfaceStart.x) < 0.01 && Math.abs(a.pos.y - naSurfaceStart.y) < 0.01 && Math.abs(a.pos.z - naSurfaceStart.z) < 0.01) {
+        return { ...a, pos: naPos, released: true, highlight: true };
+      }
+      if (a.elem === "Cl" && Math.abs(a.pos.x - clSurfaceStart.x) < 0.01 && Math.abs(a.pos.y - clSurfaceStart.y) < 0.01 && Math.abs(a.pos.z - clSurfaceStart.z) < 0.01) {
+        return { ...a, pos: clPos, released: true, highlight: true };
+      }
+      return a;
+    }),
+    waters,
+    interactionsOn: interactionT > 0.2,
+    naPos,
+    clPos
+  };
+}
+
+function sceneState(scene) {
+  if (scene === "crystal") {
+    return { crystalAtoms, waters: [], interactionsOn: false };
+  }
+  if (scene === "na") {
+    return { crystalAtoms: [{ elem: "Na", pos: v(0,0,0), released: true, highlight: true }], waters: shellWaters(v(0,0,0), "Na", 6), interactionsOn: true, naPos: v(0,0,0) };
+  }
+  if (scene === "cl") {
+    return { crystalAtoms: [{ elem: "Cl", pos: v(0,0,0), released: true, highlight: true }], waters: shellWaters(v(0,0,0), "Cl", 6), interactionsOn: true, clPos: v(0,0,0) };
+  }
+  if (scene === "final") {
+    return movieState(movieFrameCount - 1);
+  }
+  return movieState(movieFrame);
+}
+
+function addSphere(atom) {
+  const radius = atom.highlight ? (RADII[atom.elem] + 0.08) : RADII[atom.elem];
+  viewer.addSphere({
+    center: atom.pos,
+    radius,
+    color: COLORS[atom.elem] || "#cccccc",
+    alpha: 1.0
+  });
+
+  if (atom.highlight) {
+    viewer.addSphere({
+      center: atom.pos,
+      radius: radius + 0.20,
+      color: COLORS.highlight,
+      alpha: 0.18
     });
   }
 
-  viewer.spin(spinning);
+  if (labelsOn && (atom.elem === "Na" || atom.elem === "Cl")) {
+    viewer.addLabel(atom.elem === "Na" ? "Na⁺" : "Cl⁻", {
+      position: atom.pos,
+      backgroundColor: "rgba(0,0,0,0.38)",
+      fontColor: "white",
+      fontSize: 13,
+      inFront: true
+    });
+  }
+}
+
+function addOHBond(a, b) {
+  viewer.addCylinder({
+    start: a,
+    end: b,
+    radius: 0.055,
+    color: COLORS.OHBond,
+    fromCap: true,
+    toCap: true
+  });
+}
+
+function addDottedInteraction(start, end) {
+  const segments = 7;
+  for (let i = 0; i < segments; i += 2) {
+    const a = i / segments;
+    const b = (i + 1) / segments;
+    viewer.addCylinder({
+      start: lerp(start, end, a),
+      end: lerp(start, end, b),
+      radius: 0.030,
+      color: COLORS.interaction,
+      alpha: 0.78,
+      fromCap: true,
+      toCap: true
+    });
+  }
+}
+
+function drawWater(water, interactionsOn, naPos, clPos) {
+  // Draw only covalent O-H bonds in water.
+  addOHBond(water.O, water.H1);
+  addOHBond(water.O, water.H2);
+
+  waterParts(water).forEach(addSphere);
+
+  if (interactionsOn) {
+    if (water.mode === "Na" && naPos) {
+      addDottedInteraction(water.O, naPos);
+    }
+    if (water.mode === "Cl" && clPos) {
+      addDottedInteraction(water.H1, clPos);
+      addDottedInteraction(water.H2, clPos);
+    }
+  }
+}
+
+function renderManualScene(scene = currentScene) {
+  if (!viewer) return;
+  const state = sceneState(scene);
+  viewer.clear();
+  viewer.removeAllLabels();
+
+  // Important: no addModel, no inferred sticks.
+  state.crystalAtoms.forEach(addSphere);
+  state.waters.forEach(w => drawWater(w, state.interactionsOn, state.naPos, state.clPos));
+
+  viewer.setBackgroundColor("#1f3148");
+  if (scene === "movie") {
+    viewer.spin(false);
+  } else {
+    viewer.spin(spinning);
+  }
   viewer.render();
 }
 
-function safeResize() {
+function setCamera(scene) {
   if (!viewer) return;
-  try {
-    viewer.resize();
-    viewer.zoomTo();
-    viewer.render();
-  } catch (e) {
-    console.warn("resize skipped", e);
+  viewer.zoomTo();
+  if (scene === "movie" || scene === "final") {
+    viewer.rotate(20, "y");
+    viewer.zoom(1.18);
   }
+  viewer.render();
 }
 
-async function setScene(scene) {
-  if (!viewer || !sceneInfo[scene]) return;
+function startMovie() {
+  stopMovie();
+  moviePlaying = true;
+  status("Filme controlado em execução: somente O–H é ligação; pontilhado = interação íon–dipolo.");
+  movieTimer = setInterval(() => {
+    movieFrame = (movieFrame + 1) % movieFrameCount;
+    renderManualScene("movie");
+  }, 95);
+}
+
+function stopMovie() {
+  if (movieTimer) clearInterval(movieTimer);
+  movieTimer = null;
+}
+
+function setScene(scene) {
   currentScene = scene;
   const info = sceneInfo[scene];
-
   $("viewerTitle").textContent = info.title;
   $("sceneExplanation").innerHTML = info.explanation;
   document.querySelectorAll(".scene-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.scene === scene));
 
-  viewer.clear();
-  viewer.stopAnimate();
-
-  const data = await fetchText(info.path);
-
-  if (info.type === "movie") {
-    viewer.addModelsAsFrames(data, "xyz");
-    applyHydrationStyle();
-    viewer.zoomTo();
-    if (moviePlaying) viewer.animate({ loop: "forward", interval: 260 });
-    status(moviePlaying ? "Filme multi-frame em execução." : "Filme carregado e pausado.");
+  stopMovie();
+  if (scene === "movie") {
+    movieFrame = 0;
+    renderManualScene("movie");
+    setCamera("movie");
+    if (moviePlaying) startMovie();
   } else {
-    viewer.addModel(data, "xyz");
-    applyHydrationStyle();
-    viewer.zoomTo();
+    renderManualScene(scene);
+    setCamera(scene);
     status(`Cena carregada: ${info.title}.`);
   }
-
-  setTimeout(() => {
-    try { viewer.resize(); viewer.render(); } catch (e) {}
-  }, 80);
 }
 
 function initViewer() {
@@ -127,15 +368,17 @@ function initViewer() {
     antialias: true
   });
 
-  setScene("movie").catch(err => {
-    console.error(err);
-    status("Erro ao carregar modelo molecular.");
-  });
+  spinning = false;
+  moviePlaying = true;
+  setScene("movie");
 
-  setTimeout(safeResize, 150);
+  setTimeout(() => {
+    try { viewer.resize(); renderManualScene(currentScene); setCamera(currentScene); } catch(e) {}
+  }, 150);
+
   window.addEventListener("resize", () => setTimeout(() => {
     if (viewer) {
-      try { viewer.resize(); viewer.render(); } catch (e) {}
+      try { viewer.resize(); renderManualScene(currentScene); } catch (e) {}
     }
   }, 150));
 }
@@ -150,42 +393,50 @@ document.querySelectorAll(".style-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     const style = btn.dataset.style;
 
-    if (style === "hydration" || style === "spacefill") {
-      currentStyle = style;
-      applyHydrationStyle();
+    if (style === "hydration") {
+      status("Estilo rigoroso ativo: somente O–H é ligação; hidratação é pontilhada.");
+      renderManualScene(currentScene);
+    }
+
+    if (style === "spacefill") {
+      status("Nesta versão rigorosa, spacefill mantém ligações falsas desligadas.");
+      renderManualScene(currentScene);
     }
 
     if (style === "labels") {
       labelsOn = !labelsOn;
-      applyHydrationStyle();
+      renderManualScene(currentScene);
     }
 
     if (style === "spin") {
       spinning = !spinning;
-      applyHydrationStyle();
+      if (currentScene === "movie") {
+        status("No filme, a rotação automática permanece desligada para não prejudicar a leitura.");
+        spinning = false;
+      }
+      renderManualScene(currentScene);
     }
 
     if (style === "play") {
-      moviePlaying = !moviePlaying;
-      if (currentScene === "movie") {
-        if (moviePlaying) {
-          viewer.animate({ loop: "forward", interval: 260 });
-          status("Filme multi-frame em execução.");
-        } else {
-          viewer.stopAnimate();
-          status("Filme pausado.");
-        }
-      } else {
+      if (currentScene !== "movie") {
         status("Play/pause atua apenas na cena Filme.");
+        return;
+      }
+      moviePlaying = !moviePlaying;
+      if (moviePlaying) startMovie();
+      else {
+        stopMovie();
+        status("Filme pausado.");
       }
     }
 
     if (style === "reset" && viewer) {
-      viewer.zoomTo();
-      viewer.render();
+      setCamera(currentScene);
+      renderManualScene(currentScene);
     }
   });
 });
+
 
 /* Pedagogical quantitative simulation */
 const sim = {

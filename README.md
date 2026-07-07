@@ -57,3 +57,17 @@ Correções:
 - o código não remove mais os pontos iniciais do gráfico;
 - o canvas só é redimensionado quando o tamanho real muda, evitando flicker/sumiço;
 - altura fixa do canvas para melhorar estabilidade visual.
+
+## V5 — animação molecular rigorosa
+
+Correção principal:
+- A animação não usa mais `addModel()` nem `addModelsAsFrames()` para o filme.
+- O 3Dmol não infere ligações a partir de XYZ.
+- Todos os átomos são desenhados como esferas.
+- Somente as ligações O–H da água são desenhadas manualmente com cilindros.
+- As interações Na⁺···O e Cl⁻···H são mostradas como linhas pontilhadas.
+- A rotação automática fica desligada durante o filme para melhorar a leitura didática.
+- O cristal foi reduzido para destacar a superfície ativa.
+
+Motivo:
+Arquivos XYZ não têm conectividade química. O visualizador podia inferir ligações falsas entre água, íons e cristal. A V5 elimina essa ambiguidade.

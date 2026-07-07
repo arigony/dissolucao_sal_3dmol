@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dissolução do NaCl em água — 3Dmol corrigido</title>
+  <title>Dissolução do NaCl em água — 3Dmol rigoroso V5</title>
   <meta name="description" content="Objeto educacional interativo sobre dissolução do NaCl em água com 3Dmol.js, água com ligações O-H visíveis e animação molecular didática.">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -33,7 +33,7 @@
         <p class="eyebrow">Química Geral • Solubilidade • Hidratação iônica</p>
         <h1>Do cristal de NaCl aos íons hidratados</h1>
         <p class="lead">
-          Esta versão corrige o visualizador 3D e mostra a água como molécula:
+          Esta versão evita ligações falsas inferidas pelo visualizador e mostra a água como molécula:
           <strong>ligações O–H visíveis</strong>, orientação dipolar e hidratação de Na⁺ e Cl⁻.
           A animação é didática e inspirada em vídeos educacionais de dissolução, sem afirmar ser dinâmica molecular real.
         </p>
@@ -58,11 +58,10 @@
   <section id="viewer" class="section">
     <div class="container">
       <div class="section-heading">
-        <p class="eyebrow">Visualizador molecular 3D corrigido</p>
-        <h2>Água com ligações O–H e hidratação orientada</h2>
+        <p class="eyebrow">Visualizador molecular 3D rigoroso</p>
+        <h2>Sem ligações falsas: só O–H é ligação</h2>
         <p>
-          O visualizador fica preso ao card, sem sobrepor o cabeçalho. Use os botões para alternar cristal,
-          íons hidratados e animação multi-frame.
+          A animação é desenhada manualmente: O–H aparece como ligação covalente; Na⁺···O e Cl⁻···H aparecem como interação pontilhada.
         </p>
       </div>
 
@@ -100,7 +99,7 @@
           </div>
           <div id="viewer3d" class="viewer3d" aria-label="Visualizador molecular 3D"></div>
           <p class="caption">
-            Modelo didático: as ligações O–H são covalentes dentro da água; as interações íon–dipolo são representadas visualmente, não como ligações covalentes com os íons.
+            Modelo didático rigoroso: somente O–H é ligação covalente; linhas pontilhadas representam interações íon–dipolo, não ligações covalentes com os íons.
           </p>
         </div>
 
